@@ -44,7 +44,7 @@ jobs:
         run: npm --prefix web ci
 
       - name: Install Playwright Chromium
-        run: npx --prefix web playwright install --with-deps chromium
+        run: npx --prefix web playwright install --with-deps chromium firefox
 
       - name: Build parity fixtures
         run: python web/tools/make_fixtures.py web/.fixtures
