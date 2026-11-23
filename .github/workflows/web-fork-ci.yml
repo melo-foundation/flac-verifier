@@ -1,0 +1,63 @@
+name: Web CI (fork)
+
+on:
+  push:
+    branches: [main, web-port]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    # Runs only on the fork; the upstream repository does not carry this workflow.
+    if: github.repository == 'melo-foundation/flac-verifier'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dev dependencies
+        run: npm --prefix web ci
+
+      - name: Install Playwright Chromium
+        run: npx --prefix web playwright install --with-deps chromium firefox
+
+      - name: Build parity fixtures
+        run: python web/tools/make_fixtures.py web/.fixtures
+
+      - name: Python unit tests
+        working-directory: web
+        run: python -m unittest discover -s tests
+
+      - name: JS unit tests
+        run: npm --prefix web test
+
+      - name: Parity against the desktop engine
+        run: npm --prefix web run parity -- web/.fixtures
+
+      - name: End-to-end tests
+        run: npm --prefix web run e2e
